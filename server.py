@@ -34,11 +34,18 @@ import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse, HTMLResponse
+from supabase import create_client, Client
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+# --- SUPABASE SETUP ---
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# ----------------------
 
 app = FastAPI(title="AI Fitness Coach")
 
@@ -115,9 +122,18 @@ async def get_plan(goal: str = Query(..., description="Describe the fitness goal
     except RuntimeError as e:
         return JSONResponse(status_code=502, content={"error": str(e)})
 
+    try:
+        # Insert the goal and the AI's plan into your Supabase table
+        data = supabase.table("saved_plans").insert({"goal": goal, "plan": plan}).execute()
+    except Exception as e:
+        # If the database fails, we still return the plan to the user, but print the error to our server
+        print(f"Database Error: {e}")
+    
+    # ------------------------------
     return {"plan": plan}
 
 
+    
 @app.get("/", response_class=HTMLResponse)
 async def root():
     html_content = """
